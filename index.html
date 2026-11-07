@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quy Hoạch Tuyến Tính KNTT - GV. Mai Đức Thắng</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    
+    <!-- KaTeX -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; }
+        .canvas-container { cursor: grab; }
+        .canvas-container:active { cursor: grabbing; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        .solution-content { transition: all 0.2s ease-in-out; }
+        
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+        .smooth-scroll { scroll-behavior: smooth; }
+
+        /* ======== CẤU HÌNH XUẤT PDF CHUẨN MỰC (NATIVE PRINT) ======== */
+        @media print {
+            @page { margin: 15mm; size: A4 portrait; }
+            body { background-color: #ffffff !important; }
+            
+            /* Bắt buộc giữ màu nền cho ô Kết luận */
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            
+            /* Ngăn không cho trình duyệt cắt ngang dòng chữ khi sang trang mới */
+            .solution-content li, .conclusion-box, .katex-display { page-break-inside: avoid !important; }
+            
+            /* Phá vỡ cấu trúc cuộn màn hình để in toàn bộ nội dung */
+            .flex-1 { flex: none !important; }
+            .h-full, .h-screen { height: auto !important; }
+            .min-h-full { min-height: 0 !important; }
+            .overflow-hidden, .overflow-y-auto { overflow: visible !important; }
+            
+            /* Ẩn các nút bấm và menu không cần thiết khi in */
+            header, .lg\:w-1\/3, .pointer-events-none, button, .print-hide { display: none !important; }
+            
+            /* Thu gọn đồ thị để vừa vặn trang giấy A4 */
+            canvas { max-height: 450px !important; max-width: 90% !important; object-fit: contain !important; margin: 0 auto !important; display: block !important; border: 1px solid #cbd5e1 !important; border-radius: 8px !important; }
+            
+            /* Ép font chữ chuẩn tài liệu in ấn */
+            .solution-content { font-family: "Times New Roman", serif !important; font-size: 14pt !important; color: #000000 !important; }
+        }
+    </style>
+</head>
+<body class="text-slate-800 h-screen flex flex-col overflow-hidden print:h-auto print:overflow-visible print:block">
+
+<div id="app" class="flex-1 flex flex-col h-full overflow-hidden print:h-auto print:overflow-visible print:block">
+    
+    <!-- Header Web (Ẩn khi in) -->
+    <header class="bg-blue-600 text-white p-4 shadow-md flex justify-center items-center shrink-0 z-20 print:hidden">
+        <div class="text-center w-full">
+            <h1 class="text-xl md:text-2xl font-bold uppercase tracking-wide">GIẢI BÀI TOÁN QUY HOẠCH TUYẾN TÍNH - GV. MAI ĐỨC THẮNG</h1>
+            <p class="text-sm md:text-base text-blue-200 mt-1">Chuẩn SGK Kết nối tri thức với cuộc sống</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="flex flex-1 flex-col lg:flex-row overflow-hidden print:block print:overflow-visible">
+        
+        <!-- CỘT TRÁI: NHẬP LIỆU (Ẩn khi in) -->
+        <div class="w-full lg:w-1/3 bg-white border-r border-slate-200 flex flex-col h-full overflow-y-auto p-5 shadow-sm z-10 print:hidden">
+            
+            <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
+                <h2 class="font-bold text-lg mb-3 text-blue-700 flex items-center"><i data-lucide="target" class="w-5 h-5 mr-2"></i> Hàm Mục Tiêu</h2>
+                <div class="flex items-center flex-wrap gap-y-3 gap-x-2 mb-4">
+                    <span class="font-semibold text-lg" v-html="renderMath('F(x,y) = ')"></span>
+                    
+                    <div class="flex shadow-sm rounded-md">
+                        <input type="number" v-model.number="obj.a" class="w-20 border border-slate-300 border-r-0 rounded-l-md px-2 py-1.5 text-center font-bold outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 z-10">
+                        <button @click="obj.a = -obj.a" class="bg-slate-200 hover:bg-slate-300 border border-slate-300 rounded-r-md px-2 py-1.5 text-xs font-bold text-slate-600 transition">+/-</button>
+                    </div>
+                    <span class="font-semibold text-lg" v-html="renderMath('x')"></span>
+                    
+                    <span class="font-semibold text-lg">+</span>
+                    
+                    <div class="flex shadow-sm rounded-md">
+                        <input type="number" v-model.number="obj.b" class="w-20 border border-slate-300 border-r-0 rounded-l-md px-2 py-1.5 text-center font-bold outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 z-10">
+                        <button @click="obj.b = -obj.b" class="bg-slate-200 hover:bg-slate-300 border border-slate-300 rounded-r-md px-2 py-1.5 text-xs font-bold text-slate-600 transition">+/-</button>
+                    </div>
+                    <span class="font-semibold text-lg" v-html="renderMath('y')"></span>
+                </div>
+                <div class="flex gap-2">
+                    <button @click="obj.type = 'MAX'" :class="obj.type === 'MAX' ? 'bg-red-500 text-white shadow-inner' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'" class="flex-1 py-2 rounded-lg font-bold transition">Tìm MAX</button>
+                    <button @click="obj.type = 'MIN'" :class="obj.type === 'MIN' ? 'bg-green-500 text-white shadow-inner' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'" class="flex-1 py-2 rounded-lg font-bold transition">Tìm MIN</button>
+                </div>
+            </div>
+
+            <div class="mb-6 flex-1">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="font-bold text-lg text-blue-700 flex items-center"><i data-lucide="list" class="w-5 h-5 mr-2"></i> Hệ Ràng Buộc</h2>
+                    <button @click="addConstraint" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold flex items-center shadow transition">
+                        <i data-lucide="plus" class="w-4 h-4 mr-1"></i> Thêm BPT
+                    </button>
+                </div>
+                
+                <div class="space-y-3">
+                    <div v-for="(c, index) in constraints" :key="c.id" class="flex flex-wrap items-center gap-1.5 bg-white p-3 rounded-lg border-2 shadow-sm transition" 
+                         :style="{ borderColor: c.visible ? lineColors[index % lineColors.length] : '#e2e8f0', opacity: c.visible ? 1 : 0.5 }">
+                        
+                        <div class="text-sm font-bold w-6 text-center" :style="{ color: lineColors[index % lineColors.length] }" v-html="renderMath('d_' + (index+1))"></div>
+                        
+                        <div class="flex shadow-sm rounded-md">
+                            <input type="number" v-model.number="c.a" class="w-16 border border-slate-300 border-r-0 rounded-l-md px-1.5 py-1 text-center font-bold text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 z-10">
+                            <button @click="c.a = -c.a" class="bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-r-md px-1.5 py-1 text-[10px] font-bold text-slate-500 transition">+/-</button>
+                        </div>
+                        <span class="font-semibold text-sm" v-html="renderMath('x')"></span>
+                        <span class="font-semibold text-sm">+</span>
+                        
+                        <div class="flex shadow-sm rounded-md">
+                            <input type="number" v-model.number="c.b" class="w-16 border border-slate-300 border-r-0 rounded-l-md px-1.5 py-1 text-center font-bold text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 z-10">
+                            <button @click="c.b = -c.b" class="bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-r-md px-1.5 py-1 text-[10px] font-bold text-slate-500 transition">+/-</button>
+                        </div>
+                        <span class="font-semibold text-sm" v-html="renderMath('y')"></span>
+                        
+                        <select v-model="c.sign" class="border border-slate-300 rounded-md bg-slate-50 px-2 py-1 font-bold text-sm outline-none focus:border-blue-500">
+                            <option value="<=">≤</option>
+                            <option value=">=">≥</option>
+                            <option value="<"><</option>
+                            <option value=">">></option>
+                        </select>
+                        
+                        <div class="flex shadow-sm rounded-md">
+                            <input type="number" v-model.number="c.c" class="w-16 border border-slate-300 border-r-0 rounded-l-md px-1.5 py-1 text-center font-bold text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 z-10">
+                            <button @click="c.c = -c.c" class="bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-r-md px-1.5 py-1 text-[10px] font-bold text-slate-500 transition">+/-</button>
+                        </div>
+                        
+                        <div class="ml-auto flex gap-1">
+                            <button @click="c.visible = !c.visible" class="p-1.5 bg-slate-100 rounded-md text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition" :title="c.visible ? 'Ẩn đường thẳng' : 'Hiện đường thẳng'">
+                                <i :data-lucide="c.visible ? 'eye' : 'eye-off'" class="w-4 h-4"></i>
+                            </button>
+                            <button @click="removeConstraint(index)" class="p-1.5 bg-slate-100 rounded-md text-slate-500 hover:text-red-600 hover:bg-red-50 transition" title="Xóa">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3 shadow-inner">
+                <label class="flex items-center cursor-pointer group">
+                    <div class="relative">
+                        <input type="checkbox" class="sr-only" v-model="isNatural">
+                        <div class="block bg-slate-300 w-10 h-6 rounded-full transition-colors group-hover:bg-slate-400" :class="{'!bg-amber-500': isNatural}"></div>
+                        <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform shadow-sm" :class="{'transform translate-x-4': isNatural}"></div>
+                    </div>
+                    <div class="ml-3 text-sm font-semibold text-slate-700">Biến số là số tự nhiên <span v-html="renderMath('(x, y \\in \\mathbb{N})')"></span></div>
+                </label>
+
+                <label class="flex items-center cursor-pointer group">
+                    <div class="relative">
+                        <input type="checkbox" class="sr-only" v-model="fillFeasibleRegion">
+                        <div class="block bg-slate-300 w-10 h-6 rounded-full transition-colors group-hover:bg-slate-400" :class="{'!bg-blue-500': fillFeasibleRegion}"></div>
+                        <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform shadow-sm" :class="{'transform translate-x-4': fillFeasibleRegion}"></div>
+                    </div>
+                    <div class="ml-3 text-sm font-semibold text-slate-700">Tô màu đa giác miền nghiệm</div>
+                </label>
+
+                <label class="flex items-center cursor-pointer group">
+                    <div class="relative">
+                        <input type="checkbox" class="sr-only" v-model="showSweepLine">
+                        <div class="block bg-slate-300 w-10 h-6 rounded-full transition-colors group-hover:bg-slate-400" :class="{'!bg-red-500': showSweepLine}"></div>
+                        <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform shadow-sm" :class="{'transform translate-x-4': showSweepLine}"></div>
+                    </div>
+                    <div class="ml-3 text-sm font-semibold text-slate-700">Mô phỏng đường quét mục tiêu</div>
+                </label>
+
+                <div class="pt-2 border-t border-slate-200 mt-2">
+                    <label class="flex items-center cursor-pointer group">
+                        <div class="relative">
+                            <input type="checkbox" class="sr-only" v-model="showSolution">
+                            <div class="block bg-slate-300 w-10 h-6 rounded-full transition-colors group-hover:bg-slate-400" :class="{'!bg-emerald-600': showSolution}"></div>
+                            <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform shadow-sm" :class="{'transform translate-x-4': showSolution}"></div>
+                        </div>
+                        <div class="ml-3 text-sm font-bold text-emerald-700">Hiển thị lời giải chi tiết</div>
+                    </label>
+                    <p class="text-xs text-slate-500 ml-13 mt-1 pl-12 italic">(Cuộn chuột sang dưới đồ thị để xem)</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- CỘT PHẢI: ĐỒ THỊ FULL VÀ LỜI GIẢI -->
+        <div id="rightCol" class="w-full lg:w-2/3 h-full overflow-y-auto bg-slate-100 flex flex-col smooth-scroll relative print:w-full print:block print:h-auto print:overflow-visible print:bg-white">
+            
+            <!-- HEADER TÀI LIỆU (Chỉ hiện khi xuất ra PDF) -->
+            <div class="hidden print:block text-center pb-4 mb-6 border-b-2 border-blue-700 pt-6 mx-8">
+                <h1 class="text-2xl font-bold text-blue-700 uppercase">LỜI GIẢI CHI TIẾT</h1>
+                <h2 class="text-lg text-slate-700 mt-1">Chuyên đề: Quy Hoạch Tuyến Tính - GV. Mai Đức Thắng</h2>
+            </div>
+
+            <div class="w-full h-full min-h-full shrink-0 flex flex-col p-4 print:p-0 print:block print:h-auto print:min-h-0">
+                <div class="relative flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col group print:border-none print:shadow-none print:overflow-visible">
+                    
+                    <div class="absolute top-4 left-4 right-4 flex justify-between z-10 pointer-events-none print-hide">
+                        <div class="flex gap-2 pointer-events-auto">
+                            <div class="flex bg-white/90 backdrop-blur rounded-lg shadow-sm border border-slate-200 overflow-hidden transition hover:shadow">
+                                <button @click="zoomOutByBtn" class="px-3 py-2 text-slate-600 hover:bg-slate-100 hover:text-blue-600 transition border-r border-slate-200" title="Thu nhỏ đồ thị">
+                                    <i data-lucide="zoom-out" class="w-5 h-5"></i>
+                                </button>
+                                <button @click="resetView" class="px-3 py-2 text-slate-600 hover:bg-slate-100 hover:text-blue-600 transition border-r border-slate-200" title="Về tâm đồ thị mặc định">
+                                    <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                                </button>
+                                <button @click="zoomInByBtn" class="px-3 py-2 text-slate-600 hover:bg-slate-100 hover:text-blue-600 transition" title="Phóng to đồ thị">
+                                    <i data-lucide="zoom-in" class="w-5 h-5"></i>
+                                </button>
+                            </div>
+                            
+                            <div v-if="showSweepLine" class="bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-sm border border-slate-200 flex items-center gap-3 transition hover:shadow">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm font-bold text-slate-700" v-html="renderMath('d_m:')"></span>
+                                    <input type="range" min="-500" max="500" step="1" v-model.number="mValue" class="w-24 md:w-32 accent-blue-600 cursor-pointer" @input="stopAnimation">
+                                    <span class="text-sm font-mono bg-slate-100 px-2 py-0.5 rounded border border-slate-200 w-14 text-center">{{ Math.round(mValue) }}</span>
+                                </div>
+                                <button @click="toggleAnimation" class="text-white rounded-full p-1.5 shadow transition" :class="isPlaying ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-600 hover:bg-blue-700'">
+                                    <i :data-lucide="isPlaying ? 'pause' : 'play'" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="hidden print:block text-lg font-bold text-slate-800 text-center mb-4 mt-2">1. Đồ thị minh họa:</div>
+
+                    <canvas ref="canvasRef" class="canvas-container flex-1 w-full h-full"
+                        @mousedown="startPan" @mousemove="onMouseMove" @mouseup="endPan" @mouseleave="handleMouseLeave"
+                        @wheel.prevent="doZoom" @touchstart="startTouchPan" @touchmove.prevent="doTouchPan" @touchend="endPan">
+                    </canvas>
+                    
+                    <div v-if="showSolution" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-slate-800/70 backdrop-blur text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center shadow-lg pointer-events-none animate-bounce print-hide">
+                        <i data-lucide="arrow-down" class="w-4 h-4 mr-2"></i> Cuộn xuống để xem lời giải
+                    </div>
+                </div>
+            </div>
+
+            <div id="solutionSection" v-show="showSolution" class="w-full shrink-0 flex flex-col p-4 pt-0 print:block print:p-0 print:mt-6">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden min-h-[400px] print:border-none print:shadow-none print:min-h-0">
+                    
+                    <div class="bg-slate-50 px-5 py-3 border-b border-slate-200 flex justify-between items-center shrink-0 print-hide">
+                        <h2 class="font-bold text-emerald-700 text-lg flex items-center"><i data-lucide="book-open" class="w-5 h-5 mr-2"></i> Lời Giải Chi Tiết</h2>
+                        <div class="flex items-center gap-3">
+                            <div class="flex bg-slate-200 rounded-lg overflow-hidden border border-slate-300 shadow-sm">
+                                <button @click="solFontSize = Math.max(12, solFontSize - 2)" class="px-3 py-1.5 hover:bg-slate-300 text-slate-700 transition" title="Thu nhỏ chữ"><i data-lucide="zoom-out" class="w-4 h-4"></i></button>
+                                <span class="px-3 py-1.5 bg-white text-xs font-bold border-x border-slate-300 flex items-center w-14 justify-center">{{ solFontSize }}px</span>
+                                <button @click="solFontSize = Math.min(36, solFontSize + 2)" class="px-3 py-1.5 hover:bg-slate-300 text-slate-700 transition" title="Phóng to chữ"><i data-lucide="zoom-in" class="w-4 h-4"></i></button>
+                            </div>
+                            <button @click="downloadSolutionPDF" class="text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg shadow-sm transition flex items-center gap-2 font-bold text-sm" title="In Lời Giải & Đồ Thị (Mượt mà không lỗi font)">
+                                <i data-lucide="printer" class="w-5 h-5"></i> In / Xuất PDF
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="hidden print:block text-lg font-bold text-slate-800 text-center mb-6 mt-4">2. Các bước giải chi tiết:</div>
+
+                    <div class="p-6 solution-content text-slate-800 bg-white print:p-8" :style="{ fontSize: solFontSize + 'px', lineHeight: (solFontSize * 1.6) + 'px' }" v-html="solutionHTML"></div>
+                
+                    <div class="hidden print:block text-right italic text-sm text-slate-500 mt-12 mr-8">
+                        Trích xuất từ Web App học liệu số.
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
+
+createApp({
+    setup() {
+        const obj = ref({ a: 400, b: 200, type: 'MAX' }); 
+        const isNatural = ref(false);
+        const fillFeasibleRegion = ref(false); 
+        const showSweepLine = ref(true);       
+        const showSolution = ref(false);       
+        const solFontSize = ref(18);           
+        
+        const hoveredIntPoint = ref(null);
+        
+        const constraints = ref([
+            { id: 1, a: 1, b: 0, sign: '>=', c: 0, visible: true },
+            { id: 2, a: 0, b: 1, sign: '>=', c: 0, visible: true },
+            { id: 3, a: 3, b: 1, sign: '<=', c: 180, visible: true },
+            { id: 4, a: 1, b: 1, sign: '<=', c: 100, visible: true }
+        ]);
+        
+        const lineColors = ['#ef4444', '#059669', '#7c3aed', '#ea580c', '#0284c7', '#db2777'];
+        
+        const canvasRef = ref(null);
+        const transform = ref({ x: 0, y: 0, scale: 30 }); 
+        const mValue = ref(0);
+        const isPlaying = ref(false);
+        let animFrame = null;
+        let mDirection = 1;
+        const eps = 1e-7;
+
+        watch(showSolution, (newVal) => {
+            if (newVal) {
+                nextTick(() => {
+                    const el = document.getElementById('solutionSection');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+            }
+        });
+
+        const renderMath = (tex) => {
+            try { return katex.renderToString(tex, { throwOnError: false }); } 
+            catch (e) { return tex; }
+        };
+
+        const addConstraint = () => {
+            constraints.value.push({ id: Date.now(), a: 1, b: 1, sign: '<=', c: 10, visible: true });
+            lucide.createIcons();
+        };
+        const removeConstraint = (idx) => { constraints.value.splice(idx, 1); };
+
+        const checkPoint = (x, y) => {
+            for (let c of constraints.value) {
+                if (!c.visible) continue;
+                let v = c.a * x + c.b * y;
+                if (c.sign === '<=' && v > c.c + eps) return false;
+                if (c.sign === '<' && v >= c.c) return false;
+                if (c.sign === '>=' && v < c.c - eps) return false;
+                if (c.sign === '>' && v <= c.c) return false;
+            }
+            return true;
+        };
+
+        const intersect = (c1, c2) => {
+            let D = c1.a * c2.b - c2.a * c1.b;
+            if (Math.abs(D) < eps) return null;
+            let x = (c1.c * c2.b - c2.c * c1.b) / D;
+            let y = (c1.a * c2.c - c2.a * c1.c) / D;
+            return { x, y };
+        };
+
+        const namedVertices = computed(() => {
+            let pts = [];
+            let activeC = constraints.value.filter(c => c.visible);
+            
+            const box = [
+                {a: 1, b: 0, c: -10000, sign: '>='}, {a: 1, b: 0, c: 10000, sign: '<='},
+                {a: 0, b: 1, c: -10000, sign: '>='}, {a: 0, b: 1, c: 10000, sign: '<='}
+            ];
+            let allLines = [...activeC, ...box];
+
+            for (let i = 0; i < allLines.length; i++) {
+                for (let j = i + 1; j < allLines.length; j++) {
+                    let pt = intersect(allLines[i], allLines[j]);
+                    if (pt && checkPoint(pt.x, pt.y)) {
+                        if (!pts.some(p => Math.abs(p.x - pt.x) < eps && Math.abs(p.y - pt.y) < eps)) pts.push(pt);
+                    }
+                }
+            }
+            
+            if (pts.length > 0) {
+                let cx = pts.reduce((sum, p) => sum + p.x, 0) / pts.length;
+                let cy = pts.reduce((sum, p) => sum + p.y, 0) / pts.length;
+                pts.sort((A, B) => Math.atan2(A.y - cy, A.x - cx) - Math.atan2(B.y - cy, B.x - cx));
+            }
+            
+            let charCode = 65; 
+            return pts.map((p) => {
+                let name = '';
+                if (Math.abs(p.x) < 1e-5 && Math.abs(p.y) < 1e-5) {
+                    name = 'O';
+                } else {
+                    if (charCode === 79) charCode++;
+                    name = String.fromCharCode(charCode++);
+                }
+                return { ...p, name };
+            });
+        });
+
+        const integerPoints = computed(() => {
+            if (!isNatural.value || namedVertices.value.length === 0) return [];
+            let pts = namedVertices.value;
+            let minX = Math.floor(Math.min(...pts.map(p => p.x)));
+            let maxX = Math.ceil(Math.max(...pts.map(p => p.x)));
+            let minY = Math.floor(Math.min(...pts.map(p => p.y)));
+            let maxY = Math.ceil(Math.max(...pts.map(p => p.y)));
+            
+            minX = Math.max(minX, -500); maxX = Math.min(maxX, 500);
+            minY = Math.max(minY, -500); maxY = Math.min(maxY, 500);
+
+            let valids = [];
+            for (let x = minX; x <= maxX; x++) {
+                for (let y = minY; y <= maxY; y++) {
+                    if (x >= 0 && y >= 0 && checkPoint(x, y)) valids.push({x, y});
+                }
+            }
+            return valids;
+        });
+
+        const optimalResult = computed(() => {
+            let pts = isNatural.value ? integerPoints.value : namedVertices.value;
+            if (pts.length === 0) return null;
+            
+            let bestVal = obj.value.type === 'MAX' ? -Infinity : Infinity;
+            let bestPt = null;
+            
+            pts.forEach(p => {
+                let val = obj.value.a * p.x + obj.value.b * p.y;
+                if (obj.value.type === 'MAX' ? val > bestVal : val < bestVal) {
+                    bestVal = val; bestPt = p;
+                }
+            });
+            return { pt: bestPt, val: bestVal };
+        });
+
+        const solutionHTML = computed(() => {
+            if (namedVertices.value.length === 0) return `<p class="text-red-500 font-bold">Hệ bất phương trình vô nghiệm. Tập phương án chấp nhận được là tập rỗng ($S = \\emptyset$).</p>`;
+            
+            let polyName = namedVertices.value.map(v => v.name).join('');
+
+            let html = `<div style="margin-bottom: 20px;"><b>Bước 1:</b> Gọi $x, y$ là các ẩn số. Ta có bài toán tối ưu:<br>`;
+            html += `Hàm mục tiêu: $F(x,y) = ${obj.value.a}x ${obj.value.b >= 0 ? '+' : '-'} ${Math.abs(obj.value.b)}y \\rightarrow \\text{${obj.value.type}}$ </div>`;
+            
+            html += `<div style="margin-bottom: 20px;"><b>Bước 2:</b> Hệ bất phương trình ràng buộc:<br> $\\begin{cases}`;
+            
+            const activeC = constraints.value.filter(c => c.visible);
+            activeC.forEach((c, i) => {
+                html += `${c.a}x ${c.b >= 0 ? '+' : '-'} ${Math.abs(c.b)}y ${c.sign === '<=' ? '\\le' : c.sign === '>=' ? '\\ge' : c.sign} ${c.c}`;
+                // Loại bỏ ngắt dòng dư thừa ở cuối để KaTeX không bị gãy ngoặc nhọn
+                if (i < activeC.length - 1) html += ` \\\\ `; 
+            });
+            html += `\\end{cases}$ </div>`;
+            
+            html += `<div style="margin-bottom: 20px;"><b>Bước 3:</b> Biểu diễn miền nghiệm trên mặt phẳng tọa độ $Oxy$.<br> Miền nghiệm của hệ bất phương trình là đa giác <b>${polyName}</b> (phần mặt phẳng không bị gạch chéo).</div>`;
+            
+            if (isNatural.value) {
+                html += `<div style="margin-bottom: 20px;">Vì điều kiện $x, y \\in \\mathbb{N}$, ta lấy các điểm có tọa độ nguyên nằm trong hoặc trên biên của đa giác. Có ${integerPoints.value.length} điểm thỏa mãn.</div>`;
+                html += `<div><b>Bước 4 & 5:</b> Tính giá trị $F(x,y)$ tại các điểm nguyên này để tìm phương án tối ưu:<br>`;
+                if (integerPoints.value.length > 25) {
+                    html += `<i class="text-slate-500">(Lược bớt danh sách hiển thị do số lượng điểm nguyên quá lớn)</i><br>`;
+                } else {
+                    html += `<ul class="list-disc pl-8 mt-4 space-y-2">`;
+                    integerPoints.value.forEach(p => {
+                        let v = obj.value.a * p.x + obj.value.b * p.y;
+                        html += `<li>Tại $(x=${p.x}; y=${p.y}) \\Rightarrow F = ${v}$</li>`;
+                    });
+                    html += `</ul></div>`;
+                }
+            } else {
+                html += `<div style="margin-bottom: 20px;">Tọa độ các phương án cực biên (đỉnh của đa giác) là: `;
+                html += namedVertices.value.map((p) => {
+                    if(p.name === 'O') return `$O(0; 0)$`;
+                    return `$${p.name}(${+(p.x).toFixed(2)}; ${+(p.y).toFixed(2)})$`;
+                }).join(', ') + `.</div>`;
+                
+                html += `<div><b>Bước 4 & 5:</b> Tính giá trị hàm mục tiêu $F(x,y)$ tại các đỉnh để tìm phương án tối ưu:<br><ul class="list-disc pl-8 mt-4 space-y-3">`;
+                namedVertices.value.forEach((p) => {
+                    let v = obj.value.a * p.x + obj.value.b * p.y;
+                    let displayCoords = p.name === 'O' ? '0; 0' : `${+(p.x).toFixed(2)}; ${+(p.y).toFixed(2)}`;
+                    html += `<li>Tại đỉnh $${p.name}(${displayCoords}) \\Rightarrow F = ${+(v).toFixed(2)}$</li>`;
+                });
+                html += `</ul></div>`;
+            }
+
+            if (optimalResult.value.pt) {
+                const opt = optimalResult.value;
+                // Nhúng style CSS nội tuyến (inline-style) cực mạnh để trình duyệt không xóa màu khi in
+                html += `<div class="conclusion-box" style="margin-top: 35px; padding: 20px; background-color: #ecfdf5 !important; border: 1px solid #a7f3d0 !important; border-radius: 8px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">`;
+                html += `<b style="color: #047857 !important; text-transform: uppercase;">Kết luận:</b> Vậy, hàm mục tiêu đạt giá trị ${obj.value.type === 'MAX' ? 'lớn nhất' : 'nhỏ nhất'} là <b>$${+(opt.val).toFixed(2)}$</b> tại phương án tối ưu <b>$(x = ${+(opt.pt.x).toFixed(2)}; y = ${+(opt.pt.y).toFixed(2)})$</b>.`;
+                html += `</div>`;
+            }
+            
+            return html.replace(/\$([^\$]+)\$/g, (match, tex) => renderMath(tex));
+        });
+
+        // --- CANVAS VỚI DEVICE PIXEL RATIO SCALING ---
+        const mathToCanvasX = (x) => transform.value.x + x * transform.value.scale;
+        const mathToCanvasY = (y) => transform.value.y - y * transform.value.scale;
+        const canvasToMathX = (cx) => (cx - transform.value.x) / transform.value.scale;
+        const canvasToMathY = (cy) => (transform.value.y - cy) / transform.value.scale;
+
+        const createHatchPattern = (ctx, color) => {
+            const dpr = Math.max(2, window.devicePixelRatio || 1);
+            const pCanvas = document.createElement('canvas');
+            const size = 12 * dpr;
+            pCanvas.width = size; pCanvas.height = size;
+            
+            const pCtx = pCanvas.getContext('2d');
+            pCtx.strokeStyle = color; pCtx.lineWidth = 1 * dpr;
+            pCtx.beginPath(); pCtx.moveTo(0, size); pCtx.lineTo(size, 0); pCtx.stroke();
+            
+            const pattern = ctx.createPattern(pCanvas, 'repeat');
+            pattern.setTransform(new DOMMatrix().scale(1/dpr, 1/dpr));
+            return pattern;
+        };
+
+        const drawCanvas = () => {
+            if (!canvasRef.value) return;
+            const canvas = canvasRef.value;
+            const ctx = canvas.getContext('2d');
+            
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = Math.max(2, window.devicePixelRatio || 1); 
+            
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            canvas.style.width = `${rect.width}px`;
+            canvas.style.height = `${rect.height}px`;
+            ctx.scale(dpr, dpr);
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, rect.width, rect.height);
+            
+            let startX = canvasToMathX(0), endX = canvasToMathX(rect.width);
+            let startY = canvasToMathY(rect.height), endY = canvasToMathY(0);
+
+            const drawHaloText = (text, x, y, font, align = "left", color = "#000000") => {
+                ctx.save();
+                ctx.textAlign = align;
+                ctx.font = font;
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+                ctx.lineWidth = 4;
+                ctx.strokeText(text, x, y);
+                ctx.fillStyle = color;
+                ctx.fillText(text, x, y);
+                ctx.restore();
+            };
+
+            ctx.strokeStyle = '#f1f5f9'; ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let i = Math.floor(startX); i <= Math.ceil(endX); i++) {
+                ctx.moveTo(mathToCanvasX(i), 0); ctx.lineTo(mathToCanvasX(i), rect.height);
+            }
+            for (let i = Math.floor(startY); i <= Math.ceil(endY); i++) {
+                ctx.moveTo(0, mathToCanvasY(i)); ctx.lineTo(rect.width, mathToCanvasY(i));
+            }
+            ctx.stroke();
+
+            if (fillFeasibleRegion.value && namedVertices.value.length > 0) {
+                ctx.beginPath();
+                ctx.moveTo(mathToCanvasX(namedVertices.value[0].x), mathToCanvasY(namedVertices.value[0].y));
+                for(let i=1; i<namedVertices.value.length; i++) {
+                    ctx.lineTo(mathToCanvasX(namedVertices.value[i].x), mathToCanvasY(namedVertices.value[i].y));
+                }
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(186, 230, 253, 0.4)'; 
+                ctx.fill();
+            }
+
+            constraints.value.forEach((c, idx) => {
+                if (!c.visible) return;
+                
+                let color = lineColors[idx % lineColors.length];
+                let pattern = createHatchPattern(ctx, color);
+                
+                let length = Math.sqrt(c.a * c.a + c.b * c.b);
+                if (length > 0) {
+                    let dir = (c.sign === '<=' || c.sign === '<') ? 1 : -1;
+                    let nx = dir * (c.a / length), ny = dir * (c.b / length);
+                    let tx = -ny, ty = nx;
+                    
+                    let px = 0, py = 0;
+                    if (Math.abs(c.b) > eps) py = c.c / c.b; else px = c.c / c.a;
+
+                    let M = 100000;
+                    let A = { x: px + M * tx, y: py + M * ty };
+                    let B = { x: px - M * tx, y: py - M * ty };
+                    let C = { x: B.x + M * nx, y: B.y + M * ny };
+                    let D = { x: A.x + M * nx, y: A.y + M * ny };
+
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(mathToCanvasX(A.x), mathToCanvasY(A.y)); ctx.lineTo(mathToCanvasX(B.x), mathToCanvasY(B.y));
+                    ctx.lineTo(mathToCanvasX(C.x), mathToCanvasY(C.y)); ctx.lineTo(mathToCanvasX(D.x), mathToCanvasY(D.y));
+                    ctx.closePath();
+                    ctx.clip();
+                    ctx.fillStyle = pattern; 
+                    ctx.fillRect(0, 0, rect.width, rect.height);
+                    ctx.restore();
+                }
+
+                ctx.setLineDash((c.sign === '<' || c.sign === '>') ? [5, 5] : []);
+                ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+
+                let pts = [];
+                if (c.b !== 0) {
+                    pts.push({x: startX, y: (c.c - c.a * startX) / c.b}); pts.push({x: endX, y: (c.c - c.a * endX) / c.b});
+                } else if (c.a !== 0) {
+                    pts.push({x: c.c / c.a, y: startY}); pts.push({x: c.c / c.a, y: endY});
+                }
+                
+                if (pts.length == 2) {
+                    ctx.beginPath();
+                    ctx.moveTo(mathToCanvasX(pts[0].x), mathToCanvasY(pts[0].y)); ctx.lineTo(mathToCanvasX(pts[1].x), mathToCanvasY(pts[1].y));
+                    ctx.stroke();
+                    
+                    let text = `d${idx+1}`;
+                    let angle = Math.atan2(c.a, c.b);
+                    if (angle > Math.PI/2) angle -= Math.PI;
+                    if (angle < -Math.PI/2) angle += Math.PI;
+
+                    ctx.save();
+                    let mx = (startX + endX)/2;
+                    let my = c.b !== 0 ? (c.c - c.a*mx)/c.b : 0;
+                    if (c.a !== 0 && c.b === 0) { mx = c.c/c.a; my = (startY + endY)/2; }
+                    
+                    ctx.translate(mathToCanvasX(mx), mathToCanvasY(my)); ctx.rotate(angle);
+                    
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+                    ctx.fillRect(0, -22, 20, 20);
+                    
+                    ctx.fillStyle = color; ctx.font = 'italic bold 18px "Times New Roman"';
+                    ctx.fillText(text, 2, -6); 
+                    ctx.restore();
+                }
+            });
+            ctx.setLineDash([]);
+
+            ctx.strokeStyle = '#000000'; ctx.lineWidth = 2.5; ctx.fillStyle = '#000000';
+            
+            let originY = mathToCanvasY(0);
+            ctx.beginPath(); ctx.moveTo(0, originY); ctx.lineTo(rect.width, originY); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(rect.width - 12, originY - 6); ctx.lineTo(rect.width, originY); ctx.lineTo(rect.width - 12, originY + 6); ctx.fill();
+            
+            let originX = mathToCanvasX(0);
+            ctx.beginPath(); ctx.moveTo(originX, rect.height); ctx.lineTo(originX, 0); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(originX - 6, 12); ctx.lineTo(originX, 0); ctx.lineTo(originX + 6, 12); ctx.fill();
+
+            drawHaloText('x', rect.width - 18, originY + 24, 'italic bold 20px "Times New Roman"');
+            drawHaloText('y', originX + 12, 18, 'italic bold 20px "Times New Roman"');
+            drawHaloText('O', originX - 12, originY + 22, 'italic bold 20px "Times New Roman"', 'right');
+
+            namedVertices.value.forEach((p) => {
+                let cx = mathToCanvasX(p.x), cy = mathToCanvasY(p.y);
+                
+                ctx.beginPath(); ctx.arc(cx, cy, 5.5, 0, 2*Math.PI); ctx.fillStyle = '#000000'; ctx.fill();
+                
+                if(p.name === 'O') return;
+                
+                let labelText = `${p.name}(${+(p.x).toFixed(2)}; ${+(p.y).toFixed(2)})`;
+                let labelOffsetX = 10;
+                let labelOffsetY = (p.y >= 0 ? -12 : 22);
+                let align = "left";
+                
+                if (p.x < 0) { align = "right"; labelOffsetX = -10; }
+                
+                drawHaloText(labelText, cx + labelOffsetX, cy + labelOffsetY, 'bold 17px "Times New Roman"', align);
+            });
+
+            if (isNatural.value) {
+                ctx.fillStyle = '#2563eb';
+                integerPoints.value.forEach(p => {
+                    if (hoveredIntPoint.value && p.x === hoveredIntPoint.value.x && p.y === hoveredIntPoint.value.y) return;
+                    ctx.beginPath(); ctx.arc(mathToCanvasX(p.x), mathToCanvasY(p.y), 4, 0, 2*Math.PI); ctx.fill();
+                });
+                
+                if (hoveredIntPoint.value) {
+                    const hp = hoveredIntPoint.value;
+                    const cx = mathToCanvasX(hp.x);
+                    const cy = mathToCanvasY(hp.y);
+                    
+                    ctx.beginPath(); 
+                    ctx.arc(cx, cy, 7.5, 0, 2*Math.PI); 
+                    ctx.fillStyle = '#ea580c'; 
+                    ctx.fill();
+                    
+                    const tooltipText = `(${hp.x}; ${hp.y})`;
+                    drawHaloText(tooltipText, cx + 12, cy - 12, 'bold 18px "Times New Roman"', 'left', '#ea580c');
+                }
+            }
+
+            if (showSweepLine.value && (obj.value.a !== 0 || obj.value.b !== 0)) {
+                ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 3; ctx.setLineDash([10, 6]);
+
+                let pts = [];
+                if (obj.value.b !== 0) {
+                    pts.push({x: startX, y: (mValue.value - obj.value.a * startX) / obj.value.b});
+                    pts.push({x: endX, y: (mValue.value - obj.value.a * endX) / obj.value.b});
+                } else {
+                    pts.push({x: mValue.value / obj.value.a, y: startY});
+                    pts.push({x: mValue.value / obj.value.a, y: endY});
+                }
+                
+                if (pts.length == 2) {
+                    ctx.beginPath();
+                    ctx.moveTo(mathToCanvasX(pts[0].x), mathToCanvasY(pts[0].y));
+                    ctx.lineTo(mathToCanvasX(pts[1].x), mathToCanvasY(pts[1].y));
+                    ctx.stroke();
+                }
+                ctx.setLineDash([]);
+            }
+        };
+
+        const resetView = () => {
+            if(!canvasRef.value) return;
+            const parent = canvasRef.value.parentElement;
+            transform.value = { x: parent.clientWidth / 4, y: parent.clientHeight * 3/4, scale: 30 };
+            drawCanvas();
+        };
+        
+        const zoomByCenter = (factor) => {
+            if (!canvasRef.value) return;
+            const rect = canvasRef.value.parentElement.getBoundingClientRect();
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            
+            const mathX = (centerX - transform.value.x) / transform.value.scale;
+            const mathY = (transform.value.y - centerY) / transform.value.scale;
+            
+            transform.value.scale = Math.max(2, Math.min(300, transform.value.scale * factor));
+            transform.value.x = centerX - mathX * transform.value.scale;
+            transform.value.y = centerY + mathY * transform.value.scale;
+            
+            drawCanvas();
+        };
+
+        const zoomInByBtn = () => zoomByCenter(1.2);
+        const zoomOutByBtn = () => zoomByCenter(0.8);
+
+        let isDragging = false;
+        let lastMouse = { x: 0, y: 0 };
+        
+        const startPan = (e) => { 
+            isDragging = true; 
+            lastMouse = { x: e.clientX, y: e.clientY }; 
+            if(canvasRef.value) canvasRef.value.style.cursor = 'grabbing';
+        };
+        
+        const endPan = () => { 
+            isDragging = false; 
+            if(canvasRef.value) canvasRef.value.style.cursor = hoveredIntPoint.value ? 'pointer' : 'grab';
+        };
+        
+        const onMouseMove = (e) => {
+            if (isDragging) {
+                transform.value.x += e.clientX - lastMouse.x;
+                transform.value.y += e.clientY - lastMouse.y;
+                lastMouse = { x: e.clientX, y: e.clientY };
+                drawCanvas();
+            } else {
+                if (!isNatural.value || !canvasRef.value) return;
+                
+                const rect = canvasRef.value.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                const mathX = (mouseX - transform.value.x) / transform.value.scale;
+                const mathY = (transform.value.y - mouseY) / transform.value.scale;
+                
+                const thresholdSq = Math.pow(10 / transform.value.scale, 2); 
+                let found = null;
+                
+                for (let p of integerPoints.value) {
+                    const dx = p.x - mathX;
+                    const dy = p.y - mathY;
+                    if (dx*dx + dy*dy <= thresholdSq) {
+                        found = p;
+                        break;
+                    }
+                }
+                
+                if (hoveredIntPoint.value !== found) {
+                    hoveredIntPoint.value = found;
+                    drawCanvas();
+                    canvasRef.value.style.cursor = found ? 'pointer' : 'grab';
+                }
+            }
+        };
+        
+        const handleMouseLeave = () => {
+            isDragging = false;
+            if (hoveredIntPoint.value) {
+                hoveredIntPoint.value = null;
+                drawCanvas();
+            }
+            if(canvasRef.value) canvasRef.value.style.cursor = 'grab';
+        };
+
+        const doZoom = (e) => {
+            const factor = e.deltaY < 0 ? 1.1 : 0.9;
+            const rect = canvasRef.value.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
+            const mathX = (mouseX - transform.value.x) / transform.value.scale;
+            const mathY = (transform.value.y - mouseY) / transform.value.scale;
+            transform.value.scale = Math.max(2, Math.min(300, transform.value.scale * factor));
+            transform.value.x = mouseX - mathX * transform.value.scale;
+            transform.value.y = mouseY + mathY * transform.value.scale;
+            drawCanvas();
+        };
+
+        const startTouchPan = (e) => { if(e.touches.length === 1) { isDragging = true; lastMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY }; } };
+        const doTouchPan = (e) => {
+            if (!isDragging || e.touches.length !== 1) return;
+            transform.value.x += e.touches[0].clientX - lastMouse.x;
+            transform.value.y += e.touches[0].clientY - lastMouse.y;
+            lastMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            drawCanvas();
+        };
+
+        const animateM = () => {
+            if (!isPlaying.value || !showSweepLine.value) { stopAnimation(); return; }
+            let pts = namedVertices.value.length ? namedVertices.value : [{x:0, y:0}];
+            let mVals = pts.map(p => obj.value.a * p.x + obj.value.b * p.y);
+            let minM = Math.min(...mVals, 0) - 20, maxM = Math.max(...mVals, 0) + 20;
+
+            mValue.value += mDirection * ((maxM - minM)/250); 
+            
+            if (mValue.value >= maxM) { mValue.value = maxM; mDirection = -1; }
+            if (mValue.value <= minM) { mValue.value = minM; mDirection = 1; }
+            drawCanvas();
+            animFrame = requestAnimationFrame(animateM);
+        };
+        const toggleAnimation = () => {
+            isPlaying.value = !isPlaying.value;
+            if (isPlaying.value) animateM(); else stopAnimation();
+        };
+        const stopAnimation = () => { isPlaying.value = false; cancelAnimationFrame(animFrame); drawCanvas(); };
+
+        // XUẤT PDF QUA CƠ CHẾ NATIVE BROWSER PRINT (SIÊU NÉT, KHÔNG LỖI KATEX)
+        const downloadSolutionPDF = () => {
+            showSolution.value = true;
+            nextTick(() => {
+                setTimeout(() => {
+                    window.print();
+                }, 400); // Chờ 0.4s để KaTeX và Canvas dựng xong hoàn toàn
+            });
+        };
+
+        watch([obj, constraints, isNatural, fillFeasibleRegion, showSweepLine], () => {
+            if (optimalResult.value && optimalResult.value.pt && !isPlaying.value) {
+                mValue.value = obj.value.a * optimalResult.value.pt.x + obj.value.b * optimalResult.value.pt.y;
+            }
+            if (!showSweepLine.value) stopAnimation();
+            drawCanvas(); nextTick(() => lucide.createIcons());
+        }, { deep: true });
+        
+        watch(mValue, drawCanvas);
+        
+        watch(showSolution, () => {
+            nextTick(() => { drawCanvas(); });
+        });
+
+        onMounted(() => {
+            lucide.createIcons();
+            const resizeObserver = new ResizeObserver(() => { drawCanvas(); });
+            if (canvasRef.value && canvasRef.value.parentElement) {
+                resizeObserver.observe(canvasRef.value.parentElement);
+            }
+            setTimeout(() => { resetView(); }, 100);
+        });
+
+        return {
+            obj, constraints, isNatural, fillFeasibleRegion, showSweepLine, showSolution, mValue, isPlaying, solFontSize, lineColors,
+            addConstraint, removeConstraint, solutionHTML, optimalResult,
+            canvasRef, startPan, onMouseMove, endPan, handleMouseLeave, doZoom, resetView, zoomInByBtn, zoomOutByBtn, startTouchPan, doTouchPan,
+            toggleAnimation, stopAnimation, downloadSolutionPDF, renderMath
+        };
+    }
+}).mount('#app');
+</script>
+</body>
+</html>
